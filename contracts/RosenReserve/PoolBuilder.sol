@@ -1,6 +1,9 @@
 pragma solidity 0.6.12;
 
 import "../Constants.sol";
+import "../common/CRPFactory.sol";
+import "../common/ConfigurableRightsPool";
+import "../libraries/SmartPoolManager.sol";
 
 import { RightsManager } from "../libraries/RightsManager.sol";
 
@@ -10,32 +13,59 @@ import { RightsManager } from "../libraries/RightsManager.sol";
 *  @dev:    Use this contract in conjunction with Balancer's CRPFactory to easily create Balancer Smart Pools.
 */
 
+interface ICRPFactory {
+
+  function newCrp (
+      address factoryAddress,
+      ConfigurableRightsPool.PoolParams calldata poolParams,
+      RightsManager.Rights calldata rights
+  )
+      external
+      returns (ConfigurableRightsPool);
+
+}
+
 contract PoolBuilder {
 
-  enum PoolType { Treasury, LBP, Reserve }
+    enum PoolType { Treasury, LBP, Reserve }
 
-  /*
-  *  @notice: This struct is identical to the one found in Balancer's ConfigurableRightsPool contract.
-  *  @dev:    This struct is fed to the CRPFactory. See setters below for construction logic.
-  */
+    uint constant decimals = 1000000000000000000;
 
-  struct PoolParams {
     string poolTokenSymbol;
     string poolTokenName;
     address[] constituentTokens;
     uint[] tokenBalances;
     uint[] tokenWeights;
     uint swapFee;
-    }
+
+    bool[] treasuryRights;
+    bool[] lbpRights;
+    bool[] reserveRights;
+
 
     /*
     *  @dev: Change default Rights values within their respective Getter functions below.
     *        These arrays can't be initialized to the rights values, as the CRPFactory rejects them as arguments.
     */
 
-    bool[] treasuryRights;
-    bool[] lbpRights;
-    bool[] reserveRights;
+    function addConstituentToken (address token, uint _balance, uint _weight) public returns (bool) {
+      uint balance = _balance.mul(decimals);
+      uint weight = _weight.mul(decimals);
+      constituentTokens.push(token);
+      tokenBalances.push(balance);
+      tokenWeights.push(weight);
+      return true;
+    }
+
+    function nameToken (string _symbol, string _name) public returns (bool) {
+      poolTokenSymbol = symbol;
+      poolTokenName = name;
+      return true;
+    }
+
+    function setSwapFee (uint _swapFeePercent) public returns (bool) {
+      swapFee = _swapFee;
+    }
 
     /*
     *  @param:  Pool Type 0 = Treasury
@@ -44,7 +74,7 @@ contract PoolBuilder {
     *  @return: A struct containing Rights, for use as a CRPFactory argument.
     */
 
-    function _constructRights(PoolType _type) internal returns (RightsManager.Rights memory) {
+    function constructRights (PoolType _type) internal returns (RightsManager.Rights memory) {
       if (_type == PoolType.Treasury) {
         return RightsManager.constructRights(treasury());
       } else if (_type == PoolType.LBP) {
@@ -56,7 +86,6 @@ contract PoolBuilder {
       }
     }
 
-
     /*
     *  @returns: treasury() = Balancer's recommended Smart Treasury configuration
     *            lbp()      = Balancer's recommended Liquidity Bootstrapping Pool configuration
@@ -64,7 +93,7 @@ contract PoolBuilder {
     */
 
 
-    function treasury() public returns (bool[] memory) {
+    function treasury () public returns (bool[] memory) {
       if (treasuryRights.length == 6) {
         return treasuryRights;
       } else {
@@ -78,7 +107,7 @@ contract PoolBuilder {
       }
     }
 
-    function lbp() public returns (bool[] memory) {
+    function lbp () public returns (bool[] memory) {
       if (lbpRights.length == 6) {
         return lbpRights;
       } else {
@@ -92,7 +121,7 @@ contract PoolBuilder {
       }
     }
 
-    function reserve() public returns (bool[] memory) {
+    function reserve () public returns (bool[] memory) {
       if (reserveRights.length == 6) {
         return reserveRights;
       } else {
